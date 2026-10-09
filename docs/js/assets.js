@@ -26,15 +26,24 @@ export class Assets {
 
   // lite mode: no game files. Basic shapes are generated, everything else is a sized box.
   async loadLite(url = 'lite/catalog-lite.json') {
-    const cat = await fetch(url).then(r => { if (!r.ok) throw new Error('lite catalog missing'); return r.json(); });
+    const text = await fetch(url).then(r => { if (!r.ok) throw new Error('lite catalog missing'); return r.text(); });
+    this.liteRaw = JSON.parse(text);          // untouched copy: game linking needs its part lists
+    const cat = JSON.parse(text);
     for (const [name, o] of Object.entries(cat.objects)) Object.assign(o, { parts: [], proxy: !hasShape(name), collider: o.b });
     this.useCatalog(cat, null, 'lite');
+  }
+
+  // linked mode: meshes/textures read in the browser from the player's own game folder (gamelink.js)
+  useLinked({ catalog, textures }) {
+    this.useCatalog(catalog, null, 'linked');
+    this.textureOverrides = textures;
   }
 
   useCatalog(cat, bin, mode) {
     this.catalog = cat;
     this.bin = bin;
     this.mode = mode;
+    this.textureOverrides = null;
     this.geoms.clear(); this.materials.clear();
     this.objectNames = Object.keys(cat.objects).sort((a, b) => a.localeCompare(b));
     this.materialNames = Object.keys(cat.materials).sort((a, b) => a.localeCompare(b));
@@ -46,8 +55,8 @@ export class Assets {
   isPrimitive(name) {
     const d = this.object(name);
     if (!d) return false;
-    if (this.mode === 'lite') return hasShape(name);
-    return d.parts.length > 0 && d.parts.every(p => (p.mats || []).every(m => !m || m === 'primitive'));
+    if (!d.parts.length) return hasShape(name);
+    return d.parts.every(p => (p.mats || []).every(m => !m || m === 'primitive'));
   }
 
   // ----------------------------------------------------------- geometry
@@ -56,11 +65,14 @@ export class Assets {
     if (this.geoms.has(key)) return this.geoms.get(key);
     const m = this.catalog.meshes[id];
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.bin, m.pos, m.v * 3), 3));
-    if (m.nrm >= 0) g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(this.bin, m.nrm, m.v * 3), 3));
-    if (m.uv >= 0) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(this.bin, m.uv, m.v * 2), 2));
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(this.bin, m.idx, m.i), 1));
-    if (m.nrm < 0) g.computeVertexNormals();
+    // mesh data lives either in meshes.bin (desktop) or in memory (linked game, m.data)
+    const arr = (key, n, T) => (m.data ? m.data[key] : m[key] >= 0 ? new T(this.bin, m[key], n) : null);
+    const pos = arr('pos', m.v * 3, Float32Array), nrm = arr('nrm', m.v * 3, Float32Array), uv = arr('uv', m.v * 2, Float32Array);
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    if (nrm) g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    if (uv) g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(new THREE.BufferAttribute(arr('idx', m.i, Uint32Array), 1));
+    if (!nrm) g.computeVertexNormals();
     g.computeBoundingBox(); g.computeBoundingSphere();
     this.geoms.set(key, g);
     return g;
@@ -90,11 +102,11 @@ export class Assets {
     if (!o) return [{ geometry: this.unitBox, matName: '__unknown', matrix: null, proxy: true }];
     if (o._parts) return o._parts;
     const out = [];
-    if (this.mode === 'lite') {
+    if (!o.parts.length) {    // no game mesh for it (website, or unreadable): generated shape if there is one
       const g = shapeGeometry(name);
       if (g) out.push({ geometry: g, matName: null, matrix: null, proxy: false });
       else if (isRound(name)) {
-        const b = o.b;
+        const b = o.b || o.collider;
         out.push({ geometry: unitSphere(), matName: null, proxy: false,
           matrix: new THREE.Matrix4().compose(new THREE.Vector3(...b.c), new THREE.Quaternion(), new THREE.Vector3(...b.s)) });
       }
@@ -120,6 +132,7 @@ export class Assets {
   // ----------------------------------------------------------- textures
   texture(file, srgb = true) {
     if (!file) return null;
+    if (this.textureOverrides?.has(file)) return this.textureOverrides.get(file);
     const key = file + (srgb ? '' : ':lin');
     if (this.textures.has(key)) return this.textures.get(key);
     const t = this.loader.load(this.base + 'tex/' + encodeURIComponent(file), () => this.onTextureLoad?.());

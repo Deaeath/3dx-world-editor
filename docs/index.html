@@ -50,6 +50,7 @@
   </div>
   <div class="grp right">
     <span id="mode-chip" class="chip"></span>
+    <button id="btn-link" class="primary" title="Read the real models and textures from your own 3DXChat folder. Nothing is uploaded." hidden>Link game</button>
     <button id="btn-world">World settings</button>
     <button id="btn-help" title="Controls & shortcuts">?</button>
   </div>
@@ -123,6 +124,16 @@
     <div class="row"><label>Game folder</label><input id="extract-game" spellcheck="false"></div>
     <pre id="extract-log"></pre>
     <div class="btns"><button id="extract-go" class="primary">Extract (about 2 min)</button><button id="extract-skip">Skip — use boxes</button></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-link">
+  <div class="box wide">
+    <div class="box-head"><h3>Link your game</h3><button class="close">✕</button></div>
+    <p>Pick your 3DXChat <b>Game</b> folder (the one with <code>3DXChat_Data</code> in it), e.g. <code>Downloads\3DXChatLauncherV6\3DXChat\Game</code>. The editor reads the game's models and textures <b>on this PC</b> — nothing is uploaded, even if your browser's prompt says "upload".</p>
+    <p class="muted small">Inside the SBS window your browser may ask for the <code>3DXChat_Data</code> folder itself instead. Textures stored in the game's "crunched" format keep their average colour here; the desktop app shows all of them.</p>
+    <pre id="link-log"></pre>
+    <div class="btns"><button id="link-go" class="primary">Choose folder…</button></div>
   </div>
 </div>
 

@@ -5,6 +5,7 @@ import { Assets } from './assets.js';
 import { SceneView } from './scene.js';
 import { api, setToken, hasServer } from './api.js';
 import { Outliner } from './outliner.js';
+import { linkGame, pickGameFiles, rememberedFolder } from './gamelink.js';
 
 const $ = s => document.querySelector(s);
 const el = (tag, attrs = {}, ...kids) => {
@@ -27,7 +28,7 @@ setToken(document.querySelector('meta[name=editor-token]').content);
 // 'local' = run by server.py on this PC (real files on disk, extracted game assets);
 // 'web'   = static website (browser file pickers, generated shapes unless a game is linked)
 const MODE = hasServer() ? 'local' : 'web';
-document.body.dataset.mode = MODE;
+document.body.dataset.app = MODE;   // not data-mode: that attribute marks the gizmo mode buttons
 const DEFAULT_WORLD = 'worlds/SNL-Monopoly-version.world';
 
 // ======================================================================= state
@@ -911,12 +912,57 @@ async function loadDefaultWorld() {
 function updateModeChip() {
   const c = $('#mode-chip');
   if (!c) return;
-  const full = assets.mode === 'full';
-  c.textContent = full ? 'Real game models' : 'Basic shapes';
-  c.className = 'chip ' + (full ? 'ok' : 'warn');
-  c.title = full ? 'Models and materials read from your own 3DXChat install.'
-    : 'Basic shapes are generated; other objects show as sized boxes. Use the desktop app (or link your game) for the real models.';
+  const real = assets.mode === 'full' || assets.mode === 'linked';
+  c.textContent = assets.mode === 'linked' ? 'Game linked' : real ? 'Real game models' : 'Basic shapes';
+  c.className = 'chip ' + (real ? 'ok' : 'warn');
+  c.title = assets.mode === 'linked' ? 'Models and textures read in your browser from your own 3DXChat folder.'
+    : real ? 'Models and materials read from your own 3DXChat install.'
+    : 'Basic shapes are generated; other objects show as sized boxes. Link your game (or use the desktop app) for the real models.';
+  $('#btn-link').hidden = real || !assets.liteRaw;
 }
+
+// ------------------------------------------------- link the player's own game folder
+let linking = false;
+async function linkFlow(useRemembered) {
+  if (linking) return;
+  const m = $('#modal-link'), logEl = $('#link-log');
+  m.classList.add('open');
+  logEl.textContent = '';
+  let files;
+  try { files = await pickGameFiles({ useRemembered }); }
+  catch (e) { logEl.textContent = e.message; return; }
+  if (!files) return;
+  linking = true;
+  $('#link-go').disabled = true;
+  const lines = [];
+  const log = (msg, replace = false) => {
+    if (replace && lines.length && lines[lines.length - 1].live) lines[lines.length - 1] = { msg, live: true };
+    else lines.push({ msg, live: replace });
+    logEl.textContent = lines.map(l => l.msg).join('\n');
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  try {
+    const res = await linkGame(files, assets.liteRaw, view.renderer, log);
+    assets.useLinked(res);
+    buildLibrary();
+    if (world) { const keep = [...sel]; sel.clear(); view.load(world); setSelection(keep); }
+    updateModeChip();
+    toast('Game linked: showing the real models');
+    setTimeout(closeModals, 900);
+  } catch (e) {
+    log('Could not read the game files: ' + e.message);
+    console.error(e);
+  } finally {
+    linking = false;
+    $('#link-go').disabled = false;
+  }
+}
+$('#btn-link').addEventListener('click', async () => {
+  const remembered = await rememberedFolder();
+  if (remembered) linkFlow(true);
+  else { $('#modal-link').classList.add('open'); $('#link-log').textContent = ''; }
+});
+$('#link-go').addEventListener('click', () => linkFlow(false));
 
 (async function start() {
   inspector(); updateTitle();

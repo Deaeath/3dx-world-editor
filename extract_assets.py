@@ -239,6 +239,9 @@ def material_kind(shader, keywords):
     return "standard"
 
 
+TEX_META = {}  # saved file -> the game texture's name/size/format (lets the website find it in a linked game)
+
+
 def export_texture(tex_reader, out_dir, cache):
     key = (tex_reader.assets_file.name, tex_reader.path_id)
     if key in cache:
@@ -246,6 +249,8 @@ def export_texture(tex_reader, out_dir, cache):
     fn = None
     try:
         t = tex_reader.read()
+        fmt = getattr(t.m_TextureFormat, "value", t.m_TextureFormat)
+        meta = {"name": t.m_Name, "w": t.m_Width, "h": t.m_Height, "fmt": int(fmt)}
         img = t.image
         if img is not None and img.width > 0:
             if max(img.size) > MAX_TEX:
@@ -258,6 +263,7 @@ def export_texture(tex_reader, out_dir, cache):
             else:
                 fn = base + ".jpg"
                 img.convert("RGB").save(os.path.join(out_dir, fn), quality=88)
+            TEX_META[fn] = meta
     except Exception as e:
         log("   texture failed:", key, e)
     cache[key] = fn
@@ -303,6 +309,7 @@ def export_material(m, tex_dir, tex_cache):
         "metal": floats.get("_Metallic", 0.0),
         "mode_f": floats.get("_Mode", 0.0),
         "tex": tex,
+        "texmeta": {k: TEX_META[f] for k, f in tex.items() if f in TEX_META},
         "tiling": tiling,
     }
 

@@ -95,7 +95,7 @@ aside { background: var(--panel); display: flex; flex-direction: column; min-hei
 #file-list .f { padding: 4px 8px; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; }
 #file-list .f:hover { background: #2a2f39; }
 #file-list .f.dir { color: #b9c7ff; justify-content: flex-start; }
-#extract-log { background: #0d0f13; border: 1px solid var(--line); border-radius: 4px; height: 160px; overflow: auto; padding: 6px; font-size: 11.5px; white-space: pre-wrap; }
+#extract-log, #link-log { background: #0d0f13; border: 1px solid var(--line); border-radius: 4px; height: 160px; overflow: auto; padding: 6px; font-size: 11.5px; white-space: pre-wrap; }
 table.keys { border-collapse: collapse; width: 100%; }
 table.keys td { padding: 4px 8px; border-bottom: 1px solid var(--line); }
 table.keys td:nth-child(odd) { color: var(--accent); white-space: nowrap; }

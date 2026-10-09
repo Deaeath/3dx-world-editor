@@ -42,13 +42,32 @@ def main():
     args = ap.parse_args()
     cat = json.load(open(os.path.join(args.assets, "catalog.json"), encoding="utf-8"))
 
-    objects = {}
+    # "link" data lets the website read the real meshes/textures from a game folder the
+    # player picks: which game mesh (by name + vertex count) each object part uses, the
+    # part's transform and material slots, and each material's texture name/size/format.
+    objects, link_meshes, mesh_index = {}, [], {}
     for name, o in cat["objects"].items():
-        objects[name] = {"kind": o["kind"], "b": bounds(cat, o)}
+        rec = {"kind": o["kind"], "b": bounds(cat, o)}
+        parts = []
+        for p in o["parts"]:
+            m = cat["meshes"][p["mesh"]]
+            key = (m["name"], m["v"])
+            if key not in mesh_index:
+                mesh_index[key] = len(link_meshes)
+                link_meshes.append([m["name"], m["v"], m["i"]])
+            parts.append({"mesh": mesh_index[key], "m": p["m"], "mats": p["mats"]})
+        if parts:
+            rec["parts"] = parts
+        objects[name] = rec
 
     materials = {}
     for name, m in cat["materials"].items():
         rec = {k: m[k] for k in ("kind", "mode", "color", "gloss", "metal") if k in m}
+        tm = {}
+        for k, meta in (m.get("texmeta") or {}).items():
+            tm[k] = {**meta, "til": (m.get("tiling") or {}).get(k, [1, 1, 0, 0])}
+        if tm:
+            rec["tm"] = tm
         tex = (m.get("tex") or {})
         f = tex.get("_MainTex") or tex.get("_BaseMap") or tex.get("_MainTex1")
         if f:
@@ -62,7 +81,7 @@ def main():
     out = os.path.join(HERE, "docs", "lite", "catalog-lite.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
-        json.dump({"version": 1, "lite": True, "objects": objects, "materials": materials}, f, separators=(",", ":"))
+        json.dump({"version": 2, "lite": True, "objects": objects, "materials": materials, "meshes": link_meshes}, f, separators=(",", ":"))
     print(f"{len(objects)} objects, {len(materials)} materials -> {out} ({os.path.getsize(out) // 1024} KB)")
 
 
