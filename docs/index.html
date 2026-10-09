@@ -25,9 +25,9 @@
     <button id="btn-redo" title="Redo (Ctrl+Y)">↷</button>
   </div>
   <div class="grp">
-    <button data-mode="translate" title="Move (W)">Move</button>
-    <button data-mode="rotate" title="Rotate (E)">Rotate</button>
-    <button data-mode="scale" title="Scale (R)">Scale</button>
+    <button data-mode="translate" title="Move (1)">Move</button>
+    <button data-mode="rotate" title="Rotate (2)">Rotate</button>
+    <button data-mode="scale" title="Scale (3)">Scale</button>
     <button id="btn-space" title="Gizmo space (L)">World</button>
     <button id="btn-selmode" title="Click picks whole groups or single objects (Tab). Alt+click always picks a single object.">Pick: Groups</button>
   </div>
@@ -39,8 +39,8 @@
   </div>
   <div class="grp">
     <button data-view="top" title="Top view (7)">Top</button>
-    <button data-view="front" title="Front view (1)">Front</button>
-    <button data-view="left" title="Side view (3)">Side</button>
+    <button data-view="front" title="Front view (Numpad 1)">Front</button>
+    <button data-view="left" title="Side view (Numpad 3)">Side</button>
     <button id="btn-focus" title="Frame selection (F)">Frame</button>
   </div>
   <div class="grp">
@@ -69,7 +69,7 @@
   <section id="viewport">
     <canvas></canvas>
     <div id="select-rect"></div>
-    <div id="nav-hint"><b>Right-drag</b> look · <b>Middle</b> / <b>Shift+right-drag</b> pan · <b>Wheel</b> zoom · <b>Right-hold + WASD</b> fly · <b>F</b> frame · <b>Left-drag</b> select <button id="nav-hint-close" title="Hide">✕</button></div>
+    <div id="nav-hint"><b>WASD</b> move · <b>Q/E</b> down/up · <b>Right-drag</b> look · <b>Wheel</b> zoom · <b>Middle-drag</b> pan · <b>Alt+drag</b> orbit · <b>F</b> frame · <b>Left-drag</b> select <button id="nav-hint-close" title="Hide">✕</button></div>
     <div id="toasts"></div>
   </section>
 
@@ -141,14 +141,15 @@
   <div class="box wide">
     <div class="box-head"><h3>Controls</h3><button class="close">✕</button></div>
     <table class="keys">
-      <tr><td>Right-drag</td><td>Orbit</td><td>Middle-drag</td><td>Pan</td></tr>
-      <tr><td>Wheel</td><td>Zoom to cursor</td><td>Right-hold + WASD / Q E</td><td>Fly (Shift = fast)</td></tr>
-      <tr><td>Arrows / PgUp PgDn</td><td>Slide the view</td><td>F</td><td>Frame selection</td></tr>
+      <tr><td>W A S D</td><td>Move (Shift = fast)</td><td>Q / E</td><td>Down / up</td></tr>
+      <tr><td>Right-drag</td><td>Look around</td><td>Wheel while right-dragging</td><td>Fly speed</td></tr>
+      <tr><td>Wheel</td><td>Zoom to cursor</td><td>Middle-drag</td><td>Pan</td></tr>
+      <tr><td>Alt + left-drag</td><td>Orbit around the view centre</td><td>F</td><td>Frame selection</td></tr>
       <tr><td>Click</td><td>Select group (Tab: objects)</td><td>Alt+click</td><td>Select single object</td></tr>
       <tr><td>Double-click</td><td>Step into group</td><td>Drag on empty space</td><td>Box select (Shift adds)</td></tr>
       <tr><td>Shift / Ctrl+click</td><td>Add / toggle</td><td>Esc</td><td>Deselect</td></tr>
-      <tr><td>W / E / R</td><td>Move / Rotate / Scale</td><td>L</td><td>Local / world gizmo</td></tr>
-      <tr><td>X</td><td>Toggle snapping</td><td>7 / 1 / 3</td><td>Top / front / side view</td></tr>
+      <tr><td>1 / 2 / 3</td><td>Move / Rotate / Scale gizmo</td><td>L</td><td>Local / world gizmo</td></tr>
+      <tr><td>X</td><td>Toggle snapping</td><td>7, Numpad 7 / 1 / 3</td><td>Top / front / side view</td></tr>
       <tr><td>Ctrl+D</td><td>Duplicate in place</td><td>Delete</td><td>Delete</td></tr>
       <tr><td>Ctrl+C / Ctrl+V</td><td>Copy / paste (works between worlds)</td><td>Ctrl+G / Ctrl+Shift+G</td><td>Group / ungroup</td></tr>
       <tr><td>H / Alt+H</td><td>Hide / unhide all (editor only)</td><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr>

@@ -201,7 +201,7 @@ window.addEventListener('pointermove', ev => {
   if (!down) return;
   const dx = ev.clientX - down.x, dy = ev.clientY - down.y;
   if (!down.moved && dx * dx + dy * dy > 25) down.moved = true;
-  if (down.moved) {
+  if (down.moved && !down.alt) {   // Alt+drag orbits instead of box-selecting
     const r = $('#viewport').getBoundingClientRect();
     Object.assign(rectEl.style, {
       display: 'block', left: Math.min(down.x, ev.clientX) - r.left + 'px', top: Math.min(down.y, ev.clientY) - r.top + 'px',
@@ -213,6 +213,7 @@ window.addEventListener('pointerup', ev => {
   if (!down) return;
   const d = down; down = null;
   rectEl.style.display = 'none';
+  if (d.moved && d.alt) return;    // that was an orbit
   if (d.moved) {
     let leaves = view.pickRect(d.x, d.y, ev.clientX, ev.clientY);
     const nodes = selectMode === 'group' && !d.alt ? [...new Set(leaves.map(l => l.topAncestor(world.root)))] : leaves;
@@ -236,36 +237,72 @@ canvas.addEventListener('dblclick', ev => {
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-// fly navigation: hold right mouse + WASD/QE (Shift = fast)
+// ---- camera, game style:
+//   WASD move, Q/E down/up (Shift = fast) - no button needed
+//   right-drag: look around from where you stand (mouse-look); wheel while looking = fly speed
+//   Alt+left-drag: orbit around the view centre; middle-drag: pan; wheel: zoom to cursor
 const keys = new Set();
-let rmb = false;
-canvas.addEventListener('pointerdown', e => { if (e.button === 2) rmb = true; });
-window.addEventListener('pointerup', e => { if (e.button === 2) rmb = false; });
+const MOVE_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'];
+let flySpeed = 10;          // metres per second
+let looking = false;
+const lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+canvas.addEventListener('pointerdown', e => {
+  // decide what the orbit controls may do before they see this event
+  view.controls.mouseButtons.LEFT = e.altKey ? THREE.MOUSE.ROTATE : -1;
+  if (e.button !== 2) return;
+  looking = true;
+  view.controls.enabled = false;
+  // lock the cursor once this click has reached the gizmo too (it can't capture a locked pointer)
+  setTimeout(() => { if (looking) canvas.requestPointerLock?.()?.catch?.(() => {}); }, 0);
+}, true);
+window.addEventListener('pointerup', e => {
+  if (e.button !== 2 || !looking) return;
+  looking = false;
+  view.controls.enabled = true;
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+});
+window.addEventListener('pointermove', e => {
+  if (!looking) return;
+  const cam = view.camera, tgt = view.controls.target;
+  const dist = Math.max(1, cam.position.distanceTo(tgt));
+  lookEuler.setFromQuaternion(cam.quaternion);
+  lookEuler.y -= e.movementX * 0.0035;
+  lookEuler.x = THREE.MathUtils.clamp(lookEuler.x - e.movementY * 0.0035, -1.55, 1.55);
+  lookEuler.z = 0;
+  cam.quaternion.setFromEuler(lookEuler);
+  // keep the orbit centre straight ahead so orbit/zoom carry on from the new view
+  tgt.copy(cam.position).addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), dist);
+  view.requestRender();
+});
+canvas.addEventListener('wheel', e => {
+  if (!looking) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  flySpeed = THREE.MathUtils.clamp(flySpeed * (e.deltaY < 0 ? 1.25 : 0.8), 0.5, 400);
+  toast(`Fly speed ${flySpeed < 10 ? flySpeed.toFixed(1) : Math.round(flySpeed)} m/s`);
+}, { capture: true, passive: false });
+
 let lastT = 0;
 view.onFrame = t => {
   const dt = Math.min(0.05, (t - lastT) / 1000); lastT = t;
   if (!keys.size || document.activeElement?.matches('input,textarea,select')) return false;
-  const flyKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE'];
-  const arrows = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown'];
-  if (!(rmb && flyKeys.some(k => keys.has(k))) && !arrows.some(k => keys.has(k))) return false;
+  if (keys.has('ControlLeft') || keys.has('ControlRight') || keys.has('MetaLeft') || keys.has('AltLeft')) return false;
+  if (!MOVE_KEYS.some(k => keys.has(k))) return false;
   const cam = view.camera, tgt = view.controls.target;
-  const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4 : 1) * Math.max(4, cam.position.distanceTo(tgt) * 0.8) * dt;
+  const speed = flySpeed * (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 4 : 1) * dt;
   const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd);
   const right = new THREE.Vector3().crossVectors(fwd, cam.up).normalize();
-  const flat = fwd.clone().setY(0).normalize();
   const mv = new THREE.Vector3();
-  if (rmb) {
-    if (keys.has('KeyW')) mv.add(fwd); if (keys.has('KeyS')) mv.sub(fwd);
-    if (keys.has('KeyD')) mv.add(right); if (keys.has('KeyA')) mv.sub(right);
-    if (keys.has('KeyE')) mv.y += 1; if (keys.has('KeyQ')) mv.y -= 1;
-  }
-  if (keys.has('ArrowUp')) mv.add(flat); if (keys.has('ArrowDown')) mv.sub(flat);
-  if (keys.has('ArrowRight')) mv.add(right); if (keys.has('ArrowLeft')) mv.sub(right);
-  if (keys.has('PageUp')) mv.y += 1; if (keys.has('PageDown')) mv.y -= 1;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) mv.add(fwd);
+  if (keys.has('KeyS') || keys.has('ArrowDown')) mv.sub(fwd);
+  if (keys.has('KeyD') || keys.has('ArrowRight')) mv.add(right);
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) mv.sub(right);
+  if (keys.has('KeyE') || keys.has('PageUp')) mv.y += 1;
+  if (keys.has('KeyQ') || keys.has('PageDown')) mv.y -= 1;
   if (!mv.lengthSq()) return false;
   mv.normalize().multiplyScalar(speed);
   cam.position.add(mv); tgt.add(mv);
-  view.controls.update();
+  if (!looking) view.controls.update();
   return true;
 };
 
@@ -287,20 +324,20 @@ window.addEventListener('keydown', e => {
   if (ctrl && k === 'v') { paste(); return; }
   if (ctrl && k === 'a') { e.preventDefault(); setSelection(world.root.children); return; }
   if (ctrl && k === 'g') { e.preventDefault(); e.shiftKey ? ungroup() : group(); return; }
-  if (rmb) return;   // WASD are flying
+  if (MOVE_KEYS.includes(e.code)) { e.preventDefault(); return; }   // camera movement (view.onFrame)
   if (k === 'delete' || k === 'backspace') { del(); return; }
   if (k === 'escape') { setSelection([]); return; }
-  if (k === 'w') setGizmoMode('translate');
-  else if (k === 'e') setGizmoMode('rotate');
-  else if (k === 'r') setGizmoMode('scale');
+  if (e.code === 'Digit1') setGizmoMode('translate');
+  else if (e.code === 'Digit2') setGizmoMode('rotate');
+  else if (e.code === 'Digit3') setGizmoMode('scale');
   else if (k === 'l') setSpace(view.gizmo.space === 'local' ? 'world' : 'local');
   else if (k === 'f') focusSelection();
   else if (k === 'h') e.altKey ? unhideAll() : hideSelected();
   else if (k === 'tab') { e.preventDefault(); toggleSelectMode(); }
   else if (k === 'x') { $('#snap-on').checked = !$('#snap-on').checked; applySnap(); }
-  else if (e.code === 'Numpad7' || k === '7') view.view('top');
-  else if (e.code === 'Numpad1' || k === '1') view.view('front');
-  else if (e.code === 'Numpad3' || k === '3') view.view('left');
+  else if (e.code === 'Numpad7' || e.code === 'Digit7') view.view('top');
+  else if (e.code === 'Numpad1') view.view('front');
+  else if (e.code === 'Numpad3') view.view('left');
 });
 
 function focusSelection() {

@@ -94,7 +94,8 @@ export class SceneView {
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.screenSpacePanning = true;
     this.controls.zoomToCursor = true;
-    this.controls.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+    // left = select (Alt+left orbits, set per click in main.js), right = mouse-look (main.js)
+    this.controls.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.PAN, RIGHT: -1 };
     this.controls.addEventListener('change', () => this.requestRender());
 
     this.gizmo = new TransformControls(this.camera, canvas);
