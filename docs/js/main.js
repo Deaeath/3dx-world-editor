@@ -858,6 +858,12 @@ $('#tog-grid').addEventListener('change', e => { view.grid.visible = e.target.ch
 $('#tog-ocean').addEventListener('change', e => { view.ocean.visible = e.target.checked; view.requestRender(); });
 $('#tog-respawn').addEventListener('change', e => { view.respawn.visible = e.target.checked && !!world?.header.respawn; view.requestRender(); });
 setGizmoMode('translate'); applySnap();
+// navigation hint: shown until dismissed (remembered per browser)
+try { if (localStorage.getItem('we.navHint') === 'off') $('#nav-hint').classList.add('hidden'); } catch { /* storage blocked */ }
+on('#nav-hint-close', () => { $('#nav-hint').classList.add('hidden'); try { localStorage.setItem('we.navHint', 'off'); } catch { /* storage blocked */ } });
+// clicking into the 3D view gives it keyboard focus (WASD, F, W/E/R...) - matters inside the SBS window iframe
+canvas.tabIndex = 0;
+canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
 
 // ================================================================ startup
 async function extractFlow(status) {
