@@ -41,12 +41,19 @@ def world_file_ok(path):
 def run_extract(game, out):
     extract_state.update(running=True, log=[], ok=None)
 
+    failed = [0]
+
     def sink(line):
-        if "texture failed" not in line:
-            extract_state["log"].append(line)
+        if "texture failed" in line:   # show the first few, then just count
+            failed[0] += 1
+            if failed[0] > 3:
+                return
+        extract_state["log"].append(line)
     try:
         import extract_assets  # heavy (UnityPy, numpy): only imported when needed
         extract_assets.run(game, out, sink)
+        if failed[0]:
+            extract_state["log"].append(f"({failed[0]} textures could not be read; those materials use their plain colour)")
         extract_state["ok"] = True
     except Exception as e:
         extract_state["log"].append(f"ERROR: {e}")
@@ -200,7 +207,46 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json({"error": "not found"}, 404)
 
 
+def selftest(report_path):
+    """Used by the build: check bundled files, the extractor's imports and a live request."""
+    import urllib.request
+    lines, ok = [], True
+
+    def check(name, fn):
+        nonlocal ok
+        try:
+            fn()
+            lines.append(f"ok   {name}")
+        except Exception as e:  # noqa: BLE001 - report everything
+            ok = False
+            lines.append(f"FAIL {name}: {e}")
+
+    check("web files", lambda: [open(os.path.join(WEB, p), "rb").close() for p in
+                                ("index.html", "js/main.js", "vendor/three/three.module.js",
+                                 "lite/catalog-lite.json", "worlds/SNL-Monopoly-version.world")])
+    check("lite catalog", lambda: json.load(open(os.path.join(WEB, "lite", "catalog-lite.json"), encoding="utf-8"))["objects"]["Box"])
+    check("extractor imports", lambda: __import__("extract_assets"))
+    check("texture decoders", lambda: (__import__("UnityPy.export.Texture2DConverter"),
+                                       __import__("texture2ddecoder").decode_bc1(bytes(8), 4, 4)))
+
+    def serve():
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{srv.server_address[1]}"
+        html = urllib.request.urlopen(base + "/", timeout=10).read().decode("utf-8")
+        assert TOKEN in html, "token not injected"
+        req = urllib.request.Request(base + "/api/status", headers={"X-Editor-Token": TOKEN})
+        json.loads(urllib.request.urlopen(req, timeout=10).read())
+        srv.shutdown()
+    check("server", serve)
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    sys.exit(0 if ok else 1)
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--selftest":
+        selftest(sys.argv[2])
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8790)
     ap.add_argument("--no-browser", action="store_true")

@@ -1,4 +1,8 @@
-build/
+build/work/
+build/icon.ico
+build/version_info.txt
+build/selftest.txt
 dist/
+.venv/
 __pycache__/
 *.spec

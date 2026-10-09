@@ -27,6 +27,13 @@ import sys
 import time
 
 import numpy as np
+
+try:  # UnityPy imports its audio converter (FMOD) on the texture path; we never need audio
+    import fmod_toolkit  # noqa: F401
+except Exception:  # not installed / left out of the exe on purpose
+    import types
+    sys.modules["fmod_toolkit"] = types.ModuleType("fmod_toolkit")
+
 import UnityPy
 from UnityPy.helpers.MeshHelper import MeshHandler
 
