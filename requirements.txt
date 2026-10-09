@@ -1,0 +1,4 @@
+# Only needed for the one-time asset extraction (extract_assets.py); server.py uses the standard library.
+UnityPy>=1.25
+numpy
+Pillow

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="editor-token" content="__EDITOR_TOKEN__">
+<title>3DX World Editor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l6 3.5v7L8 15l-6-3.5v-7z' fill='%234ab3ff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<header id="toolbar">
+  <div class="grp">
+    <button id="btn-new" title="New empty world">New</button>
+    <button id="btn-open" title="Open (Ctrl+O)">Open</button>
+    <button id="btn-save" title="Save (Ctrl+S) — keeps a .bak of the previous file">Save</button>
+    <button id="btn-saveas" title="Save as (Ctrl+Shift+S)">Save as</button>
+    <button id="btn-merge" title="Import another .world into this one as a group">Merge…</button>
+  </div>
+  <div class="grp">
+    <button id="btn-undo" title="Undo (Ctrl+Z)">↶</button>
+    <button id="btn-redo" title="Redo (Ctrl+Y)">↷</button>
+  </div>
+  <div class="grp">
+    <button data-mode="translate" title="Move (W)">Move</button>
+    <button data-mode="rotate" title="Rotate (E)">Rotate</button>
+    <button data-mode="scale" title="Scale (R)">Scale</button>
+    <button id="btn-space" title="Gizmo space (L)">World</button>
+    <button id="btn-selmode" title="Click picks whole groups or single objects (Tab). Alt+click always picks a single object.">Pick: Groups</button>
+  </div>
+  <div class="grp snap">
+    <label title="Snapping (X)"><input type="checkbox" id="snap-on"> Snap</label>
+    <input id="snap-move" type="number" value="0.25" step="0.05" min="0.001" title="Move snap (m)">
+    <input id="snap-rot" type="number" value="15" step="5" min="1" title="Rotate snap (°)">
+    <input id="snap-scale" type="number" value="0.1" step="0.05" min="0.001" title="Scale snap">
+  </div>
+  <div class="grp">
+    <button data-view="top" title="Top view (7)">Top</button>
+    <button data-view="front" title="Front view (1)">Front</button>
+    <button data-view="left" title="Side view (3)">Side</button>
+    <button id="btn-focus" title="Frame selection (F)">Frame</button>
+  </div>
+  <div class="grp">
+    <label><input type="checkbox" id="tog-grid" checked> Grid</label>
+    <label><input type="checkbox" id="tog-ocean"> Ocean</label>
+    <label><input type="checkbox" id="tog-respawn" checked> Spawn</label>
+  </div>
+  <div class="grp right">
+    <span id="mode-chip" class="chip"></span>
+    <button id="btn-world">World settings</button>
+    <button id="btn-help" title="Controls & shortcuts">?</button>
+  </div>
+</header>
+
+<main>
+  <aside id="left">
+    <div class="panel-head">Outliner</div>
+    <div class="search-row">
+      <input id="outliner-search" placeholder="Filter by object or material…" spellcheck="false">
+      <button id="outliner-select-matches" title="Select every match">Select</button>
+    </div>
+    <div id="outliner-list"></div>
+  </aside>
+
+  <section id="viewport">
+    <canvas></canvas>
+    <div id="select-rect"></div>
+    <div id="toasts"></div>
+  </section>
+
+  <aside id="right">
+    <div class="panel-head">Inspector</div>
+    <div id="inspector-body"></div>
+    <div class="panel-head tabs">
+      <button data-libtab="objects" class="on">Objects</button>
+      <button data-libtab="materials">Materials</button>
+    </div>
+    <div class="search-row"><input id="library-search" placeholder="Search library…" spellcheck="false"></div>
+    <div id="library-list"></div>
+  </aside>
+</main>
+
+<footer id="statusbar"><span id="file-label"></span><span id="status"></span></footer>
+
+<datalist id="dl-objects"></datalist>
+<datalist id="dl-materials"></datalist>
+<datalist id="dl-weather"><option value="Clear"><option value="Rain"><option value="Snow"><option value="Cloudy"><option value="Fog"></datalist>
+
+<div class="modal" id="welcome">
+  <div class="box">
+    <h2>3DX World Editor</h2>
+    <p>Edit 3DXChat <code>.world</code> files with the game's own models and materials.</p>
+    <div class="btns"><button id="welcome-open" class="primary">Open a world…</button><button id="welcome-new">New empty world</button></div>
+    <p class="muted small">Or drag a <code>.world</code> file onto this window.</p>
+  </div>
+</div>
+
+<div class="modal" id="modal-file">
+  <div class="box wide">
+    <div class="box-head"><h3 id="file-title">Open world</h3><button class="close">✕</button></div>
+    <input id="file-dir" spellcheck="false" title="Folder (type a path and press Enter)">
+    <div id="file-list"></div>
+    <div class="row" id="file-name-row"><label>File name</label><input id="file-name" spellcheck="false"><button id="file-ok" class="primary">Save</button></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-world">
+  <div class="box">
+    <div class="box-head"><h3>World settings</h3><button class="close">✕</button></div>
+    <div id="world-body"></div>
+    <div class="btns"><button id="world-ok" class="primary">Apply</button></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-extract">
+  <div class="box wide">
+    <div class="box-head"><h3>Extract game assets (one time)</h3></div>
+    <p>The editor shows real 3DXChat models and materials by reading them from your local game install. They are cached in <code id="extract-dir"></code> and never leave this PC.</p>
+    <div class="row"><label>Game folder</label><input id="extract-game" spellcheck="false"></div>
+    <pre id="extract-log"></pre>
+    <div class="btns"><button id="extract-go" class="primary">Extract (about 2 min)</button><button id="extract-skip">Skip — use boxes</button></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-help">
+  <div class="box wide">
+    <div class="box-head"><h3>Controls</h3><button class="close">✕</button></div>
+    <table class="keys">
+      <tr><td>Right-drag</td><td>Orbit</td><td>Middle-drag</td><td>Pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom to cursor</td><td>Right-hold + WASD / Q E</td><td>Fly (Shift = fast)</td></tr>
+      <tr><td>Arrows / PgUp PgDn</td><td>Slide the view</td><td>F</td><td>Frame selection</td></tr>
+      <tr><td>Click</td><td>Select group (Tab: objects)</td><td>Alt+click</td><td>Select single object</td></tr>
+      <tr><td>Double-click</td><td>Step into group</td><td>Drag on empty space</td><td>Box select (Shift adds)</td></tr>
+      <tr><td>Shift / Ctrl+click</td><td>Add / toggle</td><td>Esc</td><td>Deselect</td></tr>
+      <tr><td>W / E / R</td><td>Move / Rotate / Scale</td><td>L</td><td>Local / world gizmo</td></tr>
+      <tr><td>X</td><td>Toggle snapping</td><td>7 / 1 / 3</td><td>Top / front / side view</td></tr>
+      <tr><td>Ctrl+D</td><td>Duplicate in place</td><td>Delete</td><td>Delete</td></tr>
+      <tr><td>Ctrl+C / Ctrl+V</td><td>Copy / paste (works between worlds)</td><td>Ctrl+G / Ctrl+Shift+G</td><td>Group / ungroup</td></tr>
+      <tr><td>H / Alt+H</td><td>Hide / unhide all (editor only)</td><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo</td></tr>
+      <tr><td>Ctrl+S</td><td>Save (writes .bak)</td><td>Ctrl+A</td><td>Select all</td></tr>
+    </table>
+    <p class="muted small">Inspector numbers: type a value and press Enter, or focus a field and use the mouse wheel (Shift = ×10). Rotation is in the game's degrees.</p>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
