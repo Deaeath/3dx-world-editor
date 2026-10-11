@@ -26,6 +26,13 @@ Download `3DXWorldEditor.exe` from the [latest release](https://github.com/Deaea
 
 From source (Python 3.10+): double-click `Start-WorldEditor.bat`, or run `python server.py`.
 
+## AI builder and world kit
+
+- **✦ AI builder**: describe what to build or fix and Claude does it on the open world with the editor's tools (every change can be undone). Add your Anthropic API key under *AI settings*; it stays in your browser. The desktop app also uses `ANTHROPIC_API_KEY` if it is set.
+- **Generate…**: ready-made worlds (Only Up!, Squid Game, Slutopoly). The scripts live in `generators/`; `python generators/cli.py --help` runs them from the command line.
+- **Check & fix…**: portal and colour checks plus fix-it tools. **Poses** shows which way pose zones face.
+- After changing anything in `generators/`, run `python make_web_kit.py` so the website gets the same code.
+
 ## Controls
 
 | | |

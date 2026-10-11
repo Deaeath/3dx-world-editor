@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- **AI builder** (preview): chat with Claude (`claude-opus-5-5`) and it builds and fixes the open world with the editor's own tools: look around, add / change / delete objects, signs in pixel letters, run generators, check the world and apply fixes. Every change is one undo step. Bring your own Anthropic API key (kept in your browser only; the desktop app also reads `ANTHROPIC_API_KEY`).
+- **Generate…**: Only Up!, Squid Game and Slutopoly (with editable board text), opened as a new world or merged into the current one. On the website they run in your browser (Python via Pyodide); the desktop app runs them locally.
+- **Check & fix…**: portal floors and exits, washed-out colours, visible portal models, missing respawn; fix-it tools for glowing hexagon portals, flat colours and the respawn.
+- **Poses** toggle: arrows show which way every pose zone faces.
+
 ## 1.1.0
 
 - **Link game** on the website: pick your 3DXChat folder and the browser reads the real models and textures from it, locally. Nothing is uploaded.

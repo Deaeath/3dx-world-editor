@@ -1,0 +1,173 @@
+{
+  "title": "SLUTOPOLY",
+  "rules_title": "HOW TO PLAY",
+  "rules_intro": [
+    "/ROLL 6 ON YOUR TURN AND MOVE THAT MANY SQUARES. FIRST TO FINISH 3 LAPS WINS AND PICKS THE NEXT GAME MASTER.",
+    "EVERYTHING IS OPT-IN: SAY PASS AND TAKE 1 STEP BACK INSTEAD."
+  ],
+  "rules": [
+    [
+      "q",
+      "TRUTH OR DARE: DO THE ONE WITH YOUR SQUARE'S NUMBER ON THE BIG PANEL. DONE = 2 STEPS FORWARD."
+    ],
+    [
+      "story",
+      "STORY TIME: /ROLL 6 FOR A TOPIC AND TELL IT. THE ROOM LIKES IT = 2 STEPS FORWARD."
+    ],
+    [
+      "role",
+      "ROLE PLAY: PICK A PARTNER AND A SCENE FROM THE LIST, 3 MINUTES. THE ROOM VOTES: 2 STEPS FORWARD OR 2 BACK FOR YOU BOTH."
+    ],
+    [
+      "pose",
+      "POSE: PICK A PARTNER, /ROLL 6 ON THE POSE WHEEL AND GO TO THAT SPOT FOR 3 MINUTES."
+    ],
+    [
+      "dance",
+      "DANCE: DANCE NAKED UNTIL YOUR NEXT TURN."
+    ],
+    [
+      "strip",
+      "STRIP: LOSE ONE ITEM - THE PLAYER BEHIND YOU PICKS WHICH."
+    ],
+    [
+      "clinic",
+      "CLINIC: SIT OUT ONE TURN AT THE BAR NEXT DOOR. GRAB A DRINK."
+    ]
+  ],
+  "have_you_ever_title": "TRUTH OR DARE",
+  "have_you_ever": [
+    "KISS THE PLAYER YOU THINK IS HOTTEST",
+    "NEVER HAVE I EVER: SAY ONE - ALL WHO HAVE, STRIP",
+    "TWO TRUTHS AND A LIE ABOUT YOUR LOVE LIFE",
+    "30 SECOND LAP DANCE FOR THE PLAYER ON YOUR LEFT",
+    "THE BOLDEST THING YOU'VE EVER DONE AT A PARTY?",
+    "SWAP ONE PIECE OF CLOTHING WITH ANOTHER PLAYER",
+    "SEXY CATWALK ALL THE WAY ROUND THE BOARD",
+    "TAKE ANYONE TO THE BEDROOMS FOR ONE MINUTE",
+    "WOULD YOU RATHER: A 3SOME WITH FRIENDS OR STRANGERS?",
+    "DESCRIBE YOUR DREAM HOOKUP IN THREE WORDS",
+    "BODY SHOT AT THE BAR - YOU PICK WHO AND WHERE",
+    "WHAT'S THE WILDEST PLACE YOU'VE HOOKED UP?",
+    "WHISPER (PM) SOMETHING DIRTY TO THE PLAYER ACROSS",
+    "RATE EVERYONE'S OUTFIT 1-10. LOWEST SCORE STRIPS",
+    "TOPLESS UNTIL YOUR NEXT TURN",
+    "WHAT'S AT THE TOP OF YOUR SEX BUCKET LIST?",
+    "MAKE OUT WITH ANYONE YOU LIKE FOR 10 SECONDS",
+    "WHO HERE HAVE YOU THOUGHT ABOUT NAKED?",
+    "THE GROUP PICKS YOUR NEXT POSE PARTNER",
+    "YOUR MOST AWKWARD HOOKUP STORY - GO",
+    "SPANK OR GET SPANKED - YOU CHOOSE BY WHOM",
+    "PICK SOMEONE TO SIT ON YOUR LAP TILL YOUR NEXT TURN"
+  ],
+  "tell_title": "STORY TIME",
+  "tell": [
+    "YOUR WILDEST PARTY NIGHT",
+    "THE HOTTEST KISS YOU'VE EVER HAD",
+    "A HOOKUP THAT WENT HILARIOUSLY WRONG",
+    "YOUR GUILTIEST TURN-ON",
+    "THE CRAZIEST PLACE YOU'VE HOOKED UP",
+    "A FANTASY YOU'VE NEVER TOLD ANYONE"
+  ],
+  "roll_play_title": "ROLE PLAY:",
+  "roll_play": [
+    "TRUCK DRIVER / STRANDED MOTORIST",
+    "FILM DIRECTOR / STAR",
+    "PARTY GIRL / NERD",
+    "FLIGHT ATTENDANT / PASSENGER",
+    "OFFICER / ROBBER",
+    "HOOKER / CUSTOMER",
+    "QUARTERBACK / CHEERLEADER",
+    "PRISON GUARD / INMATE",
+    "PHOTOGRAPHER / MODEL",
+    "CELEBRITY / FAN",
+    "LIMO DRIVER / PASSENGER",
+    "BOSS / SECRETARY",
+    "ALIEN / ABDUCTEE",
+    "PROFESSOR / GRAD STUDENT",
+    "DENTIST / PATIENT",
+    "VIRGIN / SLUT",
+    "POOL BOY / COUGAR",
+    "MASSEUSE / CLIENT",
+    "REPAIRMAN / HOUSEWIFE",
+    "LANDLORD / TENANT",
+    "MECHANIC / CAR OWNER",
+    "SNEAKING AROUND AT THE IN-LAWS",
+    "ROYALTY / SUBJECT",
+    "TRAPPED IN ELEVATOR"
+  ],
+  "groups": [
+    [
+      "BAR SEX",
+      [
+        0.8,
+        0.72,
+        0.16
+      ]
+    ],
+    [
+      "OFFICE SEX",
+      [
+        0.3,
+        0.86,
+        0.92
+      ]
+    ],
+    [
+      "SEX TAPE",
+      [
+        0.93,
+        0.4,
+        0.88
+      ]
+    ],
+    [
+      "PORN MOVIE",
+      [
+        1.0,
+        0.72,
+        0.1
+      ]
+    ],
+    [
+      "HOTEL SEX",
+      [
+        0.9,
+        0.12,
+        0.12
+      ]
+    ],
+    [
+      "POOL PARTY",
+      [
+        1.0,
+        0.95,
+        0.15
+      ]
+    ],
+    [
+      "HOME SEX",
+      [
+        0.3,
+        0.92,
+        0.2
+      ]
+    ],
+    [
+      "CAR SEX",
+      [
+        0.24,
+        0.4,
+        0.92
+      ]
+    ]
+  ],
+  "poses": [
+    "BED ORAL",
+    "BENCH FOREPLAY",
+    "COUCH ORAL",
+    "BENCH ORAL",
+    "BED FOREPLAY",
+    "COUCH FOREPLAY"
+  ]
+}

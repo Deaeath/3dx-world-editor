@@ -23,12 +23,14 @@ from urllib.parse import parse_qs, unquote, urlparse
 HERE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(HERE, "docs")
 sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(HERE, "generators"))   # world kit: generators, checks and fix-it tools
 from gamepath import ASSET_CACHE as DEFAULT_OUT, find_game  # noqa: E402
 
 TOKEN = secrets.token_urlsafe(24)
 DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
 WORLD_EXT = (".world", ".json")
 extract_state = {"running": False, "log": [], "ok": None}
+kit_lock = threading.Lock()   # the generators keep module-level caches: one build at a time
 
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("application/json", ".json")
@@ -111,6 +113,33 @@ class Handler(SimpleHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(n)
 
+    def kit(self, path):
+        """/api/kit/*: the world kit (worldkit.py). Bodies and replies are JSON."""
+        import worldkit  # numpy: only imported when needed
+        try:
+            req = json.loads(self.body().decode("utf-8-sig") or "{}")
+            if isinstance(req.get("world"), str):          # the editor sends the world as its file text
+                req["world"] = json.loads(req["world"])
+            with kit_lock:
+                if path == "/api/kit/list":
+                    return self.send_json({"generators": worldkit.list_generators(), "fixes": worldkit.list_fixes()})
+                if path == "/api/kit/generate":
+                    return self.send_json(worldkit.generate(req["generator"], req.get("options")))
+                if path == "/api/kit/config":
+                    return self.send_json({"config": worldkit.default_config(req["generator"])})
+                if path == "/api/kit/validate":
+                    return self.send_json(worldkit.validate(req["world"]))
+                if path == "/api/kit/poses":
+                    return self.send_json({"poses": worldkit.pose_zones(req["world"])})
+                if path == "/api/kit/text":
+                    objs, warnings = worldkit.text_objects(**req)
+                    return self.send_json({"objects": objs, "warnings": warnings})
+                if path == "/api/kit/fix":
+                    return self.send_json(worldkit.apply_fix(req["world"], req["fix"], req.get("options")))
+        except (ValueError, KeyError, TypeError) as e:
+            return self.send_json({"error": f"{type(e).__name__}: {e}"}, 400)
+        self.send_json({"error": "not found"}, 404)
+
     # ---- routes --------------------------------------------------------
     def do_GET(self):
         u = urlparse(self.path)
@@ -138,6 +167,8 @@ class Handler(SimpleHTTPRequestHandler):
                 "downloads": DOWNLOADS,
                 "extract": extract_state,
             })
+        if u.path == "/api/ai/key":   # the AI builder can use the key from this PC's environment
+            return self.send_json({"key": os.environ.get("ANTHROPIC_API_KEY", "")})
         if u.path == "/api/browse":
             d = q.get("dir") or DOWNLOADS
             if not os.path.isdir(d):
@@ -174,6 +205,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not u.path.startswith("/api/") or not self.authorized():
             return
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        if u.path.startswith("/api/kit/"):
+            return self.kit(u.path)
         if u.path == "/api/world":
             path = q.get("path", "")
             if not world_file_ok(path):
@@ -239,6 +272,18 @@ def selftest(report_path):
         json.loads(urllib.request.urlopen(req, timeout=10).read())
         srv.shutdown()
     check("server", serve)
+
+    def kit():
+        import worldkit
+        assert {g["id"] for g in worldkit.list_generators()} == {"only_up", "squid_game", "slutopoly"}
+        res = worldkit.generate("slutopoly")
+        assert res["summary"]["objects"] > 10000, res["summary"]
+        v = worldkit.validate(res["world"])
+        assert not v["problems"], v["problems"]
+        fixed = worldkit.apply_fix(res["world"], "portal_glow")["report"]
+        assert fixed["glows_added"] == 0 and fixed["already_marked"] == 4, fixed
+    check("world kit", kit)
+    check("web kit bundle", lambda: open(os.path.join(WEB, "py", "worldkit.zip"), "rb").close())
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     sys.exit(0 if ok else 1)

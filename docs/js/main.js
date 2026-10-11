@@ -6,6 +6,9 @@ import { SceneView } from './scene.js';
 import { api, setToken, hasServer } from './api.js';
 import { Outliner } from './outliner.js';
 import { linkGame, pickGameFiles, rememberedFolder } from './gamelink.js';
+import { kit } from './kit.js';
+import { mountKitUI } from './kit-ui.js';
+import { mountAIPanel } from './ai-panel.js';
 
 const $ = s => document.querySelector(s);
 const el = (tag, attrs = {}, ...kids) => {
@@ -29,7 +32,9 @@ setToken(document.querySelector('meta[name=editor-token]').content);
 // 'web'   = static website (browser file pickers, generated shapes unless a game is linked)
 const MODE = hasServer() ? 'local' : 'web';
 document.body.dataset.app = MODE;   // not data-mode: that attribute marks the gizmo mode buttons
-const DEFAULT_WORLD = 'worlds/SNL-Monopoly-version.world';
+// a preview copy of the site (e.g. /beta/) can point at the main site's worlds folder
+const WORLDS = document.querySelector('meta[name=worlds]')?.content || 'worlds/';
+const DEFAULT_WORLD = WORLDS + 'SNL-Monopoly-version.world';
 
 // ======================================================================= state
 const assets = new Assets();
@@ -39,6 +44,7 @@ const sel = new Set();            // selected nodes (groups or leaves)
 let selectMode = 'group';         // 'group' | 'object'
 let clipboard = null;
 const undoStack = [], redoStack = [];
+let editVersion = 0;             // bumped by every change: slow jobs (fix-it tools) check it before applying
 
 // =================================================================== undo/redo
 function snapshot(node) { return JSON.parse(JSON.stringify(node.obj)); }
@@ -49,12 +55,13 @@ function applyState(node, state) {
   if (typeChanged) view.rebuildLeaf(node); else view.updateLeaf(node);
 }
 function pushCmd(cmd) {
+  editVersion++;
   undoStack.push(cmd); if (undoStack.length > 300) undoStack.shift();
   redoStack.length = 0;
   markDirty();
 }
-function undo() { const c = undoStack.pop(); if (!c) return; c.undo(); redoStack.push(c); afterEdit(); }
-function redo() { const c = redoStack.pop(); if (!c) return; c.redo(); undoStack.push(c); afterEdit(); }
+function undo() { const c = undoStack.pop(); if (!c) return; editVersion++; c.undo(); redoStack.push(c); afterEdit(); }
+function redo() { const c = redoStack.pop(); if (!c) return; editVersion++; c.redo(); undoStack.push(c); afterEdit(); }
 
 // change properties of leaves; mutate(node) edits node.obj in place
 function editLeaves(leaves, mutate, label = 'edit') {
@@ -84,7 +91,7 @@ function detachNode(node) {
 }
 
 function markDirty() { if (world) { world.dirty = true; updateTitle(); } }
-function afterEdit() { refreshSelection(); outliner.refresh(); }
+function afterEdit() { refreshSelection(); outliner.refresh(); refreshPoses(); }
 
 // ================================================================== selection
 function leavesOf(nodes) { const out = new Set(); for (const n of nodes) for (const l of n.leaves()) out.add(l); return [...out]; }
@@ -375,8 +382,8 @@ function selectionRoots() {
   return [...sel].sort((a, b) => order.get(a) - order.get(b));
 }
 
-function del() {
-  const nodes = selectionRoots();
+function del() { deleteNodes(selectionRoots()); }
+function deleteNodes(nodes) {
   if (!nodes.length) return;
   setSelection([]);
   const recs = nodes.slice().reverse().map(n => ({ n, ...detachNode(n) }));
@@ -654,11 +661,14 @@ async function loadWorldText(text, path, name) {
   let w;
   try { w = World.parse(text, path); } catch (e) { toast('Not a valid world file: ' + e.message, 'error'); return; }
   world = w;
+  editVersion++;
+  $('#welcome').classList.remove('open');   // however the world arrived (drop, path, picker), the start screen is done
   world.displayName = name || (path ? path.split(/[\\/]/).pop() : 'untitled.world');
   sel.clear(); undoStack.length = 0; redoStack.length = 0;
   const t0 = performance.now();
   view.load(world);
   outliner.refresh(true);
+  refreshPoses();
   // open looking north (from Unity -Z), the way builds are usually laid out to be read
   view.camera.position.copy(view.controls.target).add(new THREE.Vector3(0, 0.9, -1));
   focusSelection();
@@ -677,6 +687,40 @@ async function openPath(path) {
 
 function newWorld() {
   loadWorldText(JSON.stringify({ respawn: { p: [0, 1, 0], r: 0 }, oceanlevel: 0.0, weather: 'Clear', valuetype: 'float', objects: [] }), null, 'untitled.world');
+}
+
+// Swap in a whole new version of the world (a generator's output, a fix-it tool's result) as one undo step.
+// `name` set = a different world (new file name, framed in view); otherwise the same file, edited.
+function swapWorld(text, meta, frame) {
+  const w = World.parse(text, meta.path);
+  w.displayName = meta.name; w.handle = meta.handle; w.dirty = true;
+  world = w;
+  editVersion++;
+  sel.clear();
+  view.load(world);
+  outliner.refresh(true);
+  if (frame) { view.camera.position.copy(view.controls.target).add(new THREE.Vector3(0, 0.9, -1)); focusSelection(); }
+  inspector(); updateTitle(); updateStatus(); refreshPoses();
+}
+function replaceWorld(json, label, name = null) {
+  const after = stringifyWorld(json);
+  if (!world) { loadWorldText(after, null, name || 'untitled.world'); markDirty(); return; }
+  const was = { path: world.path, name: world.displayName, handle: world.handle };
+  const meta = name ? { path: null, name, handle: null } : was;
+  const before = world.stringify();
+  swapWorld(after, meta, !!name);
+  pushCmd({ label, undo: () => swapWorld(before, was, !!name), redo: () => swapWorld(after, meta, !!name) });
+  afterEdit();
+}
+function setHeader(patch) {
+  if (!world) return;
+  const before = JSON.parse(JSON.stringify(world.header));
+  Object.assign(world.header, JSON.parse(JSON.stringify(patch)));
+  const after = JSON.parse(JSON.stringify(world.header));
+  const apply = h => { world.header = JSON.parse(JSON.stringify(h)); view.load(world); refreshSelection(); };
+  apply(after);
+  pushCmd({ label: 'world settings', undo: () => apply(before), redo: () => apply(after) });
+  afterEdit();
 }
 
 async function save() {
@@ -862,6 +906,40 @@ function worldSettings() {
 }
 function worldSettingsApply(p, r) { world.header.respawn = { p: tidy(p), r: +r }; }
 
+// ============================================================ pose arrows
+// Pose zones (*_ph, *_poses) face their model's local +X axis: an arrow shows which way people will sit or lie.
+const isPose = n => /(_ph|_poses)$/.test(n);
+const poseLayer = new THREE.Group();
+poseLayer.renderOrder = 10;
+view.scene.add(poseLayer);
+function poseZones() {
+  if (!world) return [];
+  const e = new THREE.Euler(), q = new THREE.Quaternion(), out = [];
+  for (const l of world.leaves()) {
+    if (!isPose(l.obj.n)) continue;
+    const r = l.obj.r || [0, 0, 0];
+    e.set(r[0] * Math.PI / 180, r[1] * Math.PI / 180, r[2] * Math.PI / 180, 'YXZ');   // Unity order, game space
+    const f = new THREE.Vector3(1, 0, 0).applyQuaternion(q.setFromEuler(e));
+    const heading = ((Math.atan2(f.x, f.z) * 180 / Math.PI + 90) % 360 + 360) % 360;
+    out.push({ id: l.id, name: l.obj.n, p: l.obj.p || [0, 0, 0], heading: Math.round(heading * 10) / 10,
+      front: [f.x, f.y, f.z].map(v => Math.round(v * 1e4) / 1e4) });
+  }
+  return out;
+}
+function refreshPoses() {
+  for (const c of [...poseLayer.children]) { poseLayer.remove(c); c.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); }); }
+  if (!$('#tog-poses')?.checked || !world) { view.requestRender(); return; }
+  for (const z of poseZones()) {
+    const dir = new THREE.Vector3(-z.front[0], z.front[1], z.front[2]);   // game -> view space (X mirrored)
+    const at = new THREE.Vector3(-z.p[0], z.p[1] + 0.7, z.p[2]);
+    const a = new THREE.ArrowHelper(dir, at, 1.3, 0xff4fa3, 0.4, 0.26);
+    a.traverse(o => { if (o.material) { o.material.depthTest = false; o.material.transparent = true; } o.renderOrder = 10; });
+    poseLayer.add(a);
+  }
+  view.requestRender();
+}
+function showPoses(on) { $('#tog-poses').checked = on; refreshPoses(); }
+
 // =========================================================== status / title
 function updateTitle() {
   const n = world ? (world.dirty ? '● ' : '') + world.displayName : 'no world';
@@ -895,6 +973,7 @@ document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click'
 $('#tog-grid').addEventListener('change', e => { view.grid.visible = e.target.checked; view.requestRender(); });
 $('#tog-ocean').addEventListener('change', e => { view.ocean.visible = e.target.checked; view.requestRender(); });
 $('#tog-respawn').addEventListener('change', e => { view.respawn.visible = e.target.checked && !!world?.header.respawn; view.requestRender(); });
+$('#tog-poses').addEventListener('change', refreshPoses);
 setGizmoMode('translate'); applySnap();
 // navigation hint: shown until dismissed (remembered per browser)
 try { if (localStorage.getItem('we.navHint') === 'off') $('#nav-hint').classList.add('hidden'); } catch { /* storage blocked */ }
@@ -928,10 +1007,27 @@ async function extractFlow(status) {
   });
 }
 
+// what the world kit dialogs and the AI builder may do to the editor
+const hooks = {
+  kit, toast, MODE,
+  world: () => world,
+  selection: () => [...sel],
+  addObjects: (objs, label) => { if (!world) newWorld(); return addObjects(objs, label); },
+  editLeaves, deleteNodes, replaceWorld, setHeader, newWorld, poseZones, showPoses,
+  show: nodes => { setSelection(nodes, { reveal: true }); focusSelection(); },
+  viewCentre: () => { const t = view.controls.target; return [-t.x, t.y, t.z]; },
+  version: () => editVersion,
+  catalog: kind => (kind === 'materials' ? assets.materialNames : assets.objectNames) || [],
+  closeModals,
+};
+mountKitUI(hooks);
+const ai = mountAIPanel(hooks);
+
 // console / automation handle
 window.editor = {
   THREE, view, assets, openPath, save, undo, redo, setSelection, editLeaves, addObjects, group, ungroup, duplicate, del,
   get world() { return world; }, get selection() { return [...sel]; }, selectedLeaves,
+  kit, ai, replaceWorld, poseZones, showPoses,
 };
 
 async function loadDefaultWorld() {
